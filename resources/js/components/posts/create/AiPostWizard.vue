@@ -37,11 +37,13 @@ interface Props {
     templates: AiTemplate[];
     date?: string | null;
     initialPrompt?: string;
+    initialFormat?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     date: null,
     initialPrompt: '',
+    initialFormat: null,
 });
 
 const emit = defineEmits<{
@@ -78,10 +80,13 @@ const formats: Array<{
     },
 ];
 
-const selectedFormat = ref<InstagramFormat | null>(null);
+const isInstagramFormat = (value: string | null | undefined): value is InstagramFormat =>
+    value === ContentType.InstagramFeed || value === ContentType.InstagramStory || value === CAROUSEL_FORMAT;
+
+const selectedFormat = ref<InstagramFormat | null>(isInstagramFormat(props.initialFormat) ? props.initialFormat : null);
 const selectedStyle = ref('image_card');
 const selectedAccountId = ref<string | null>(null);
-const imageCount = ref(1);
+const imageCount = ref(selectedFormat.value === CAROUSEL_FORMAT ? 5 : 1);
 const promptText = ref(props.initialPrompt);
 const useBrandColors = ref(true);
 const submitting = ref(false);
@@ -90,6 +95,16 @@ watch(
     () => props.initialPrompt,
     (value) => {
         if (value && !promptText.value.trim()) promptText.value = value;
+    },
+);
+
+watch(
+    () => props.initialFormat,
+    (value) => {
+        if (isInstagramFormat(value) && !selectedFormat.value) {
+            selectedFormat.value = value;
+            imageCount.value = value === CAROUSEL_FORMAT ? 5 : 1;
+        }
     },
 );
 
