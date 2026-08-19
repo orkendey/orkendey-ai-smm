@@ -24,7 +24,7 @@ class GenerateContentPlanRequest extends FormRequest
         return [
             'social_account_id' => ['required', 'uuid'],
             'items' => ['required', 'array', 'min:1', 'max:7'],
-            'items.*.date' => ['required', 'date_format:Y-m-d'],
+            'items.*.date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.format' => [
                 'required',
                 'string',
