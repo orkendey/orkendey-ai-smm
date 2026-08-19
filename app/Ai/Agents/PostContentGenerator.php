@@ -10,6 +10,7 @@ use App\Ai\Templates\TemplateContext;
 use App\Enums\Ai\GeneratorFormat;
 use App\Models\Workspace;
 use App\Services\Ai\TemplateContextResolver;
+use App\Services\Content\OrkendeyKnowledgeDefaults;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
@@ -54,6 +55,10 @@ class PostContentGenerator implements Agent, HasStructuredOutput
         if ($this->template?->style()->isTweetCard()) {
             $budget['hard_max_chars'] = 560;
             $budget['target_chars'] = 280;
+        }
+
+        if (! $this->workspace->knowledgeItems()->exists()) {
+            OrkendeyKnowledgeDefaults::ensure($this->workspace);
         }
 
         $knowledge = $this->workspace->knowledgeItems()
