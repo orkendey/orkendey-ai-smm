@@ -10,6 +10,7 @@ use App\Ai\Templates\TemplateContext;
 use App\Enums\Ai\GeneratorFormat;
 use App\Models\Workspace;
 use App\Services\Ai\TemplateContextResolver;
+use App\Services\Content\OrkendeyKnowledgeDefaults;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
@@ -56,13 +57,31 @@ class PostContentGenerator implements Agent, HasStructuredOutput
             $budget['target_chars'] = 280;
         }
 
+        if (! $this->workspace->knowledgeItems()->exists()) {
+            OrkendeyKnowledgeDefaults::ensure($this->workspace);
+        }
+
+        $knowledge = $this->workspace->knowledgeItems()
+            ->where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('title')
+            ->limit(30)
+            ->get(['category', 'title', 'content'])
+            ->map(fn ($item) => "[{$item->category}] {$item->title}: {$item->content}")
+            ->implode("\n");
+
+        $brandDescription = $this->applyBrandVoice ? ($this->workspace->brand_description ?? '') : '';
+        if ($knowledge !== '') {
+            $brandDescription .= "\n\nVERIFIED KNOWLEDGE BASE. Treat these facts as authoritative. Do not invent conflicting facts:\n{$knowledge}";
+        }
+
         $view = $this->template !== null && $this->templateContext !== null
             ? $this->template->promptView($this->templateContext)
             : 'prompts.post_content.generator';
 
         return view($view, [
             'brand_name' => $this->workspace->name ?? '',
-            'brand_description' => $this->applyBrandVoice ? ($this->workspace->brand_description ?? '') : '',
+            'brand_description' => $brandDescription,
             'brand_voice_traits' => $this->applyBrandVoice ? ($this->workspace->brand_voice_traits ?? []) : [],
             'content_language' => $this->workspace->content_language,
             'current_content' => $this->currentContent,

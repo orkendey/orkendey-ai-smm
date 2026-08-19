@@ -92,6 +92,11 @@ class Workspace extends Model
         return $this->hasMany(WorkspaceLabel::class);
     }
 
+    public function knowledgeItems(): HasMany
+    {
+        return $this->hasMany(WorkspaceKnowledgeItem::class);
+    }
+
     /**
      * Get invites for this workspace (invites from the same account that include this workspace).
      *

@@ -37,6 +37,9 @@ class StreamPostCreation implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 990;
 
+    /**
+     * @param  array<int, string>  $labelIds
+     */
     public function __construct(
         public string $userId,
         public string $creationId,
@@ -48,6 +51,7 @@ class StreamPostCreation implements ShouldBeUnique, ShouldQueue
         public ?string $date = null,
         public string $template = 'image_card',
         public bool $applyBrandVisuals = true,
+        public array $labelIds = [],
     ) {
         $this->onQueue('ai');
     }
@@ -205,6 +209,7 @@ class StreamPostCreation implements ShouldBeUnique, ShouldQueue
             'media' => $generated->media,
             'date' => $this->date,
             'created_via' => CreatedVia::Web,
+            'label_ids' => $this->labelIds,
         ]);
 
         if ($generated->contentType && $socialAccount) {
