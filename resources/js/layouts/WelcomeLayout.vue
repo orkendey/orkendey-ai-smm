@@ -64,16 +64,7 @@ const canNavigateTo = (stepNumber: number): boolean =>
                         :href="personaRoute()"
                         class="flex flex-col items-center gap-2 font-medium"
                     >
-                        <img
-                            src="/images/trypost/logo-light.png"
-                            alt="TryPost"
-                            class="h-8 w-auto dark:hidden"
-                        />
-                        <img
-                            src="/images/trypost/logo-dark.png"
-                            alt="TryPost"
-                            class="hidden h-8 w-auto dark:block"
-                        />
+                        <span class="text-xl font-bold tracking-tight">Orkendey AI SMM</span>
                     </Link>
 
                     <nav
