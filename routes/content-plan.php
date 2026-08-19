@@ -28,7 +28,13 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
 
     Route::get('content-approval', [ContentApprovalController::class, 'index'])
         ->name('app.content-approval');
-
+    Route::post('content-approval/approve-all', [ContentApprovalController::class, 'approveAll'])
+        ->name('app.content-approval.approve-all');
     Route::post('content-approval/{post}/approve', [ContentApprovalController::class, 'approve'])
         ->name('app.content-approval.approve');
+
+    Route::get('content-approved', [ContentApprovalController::class, 'approved'])
+        ->name('app.content-approved');
+    Route::post('content-approved/schedule-all', [ContentApprovalController::class, 'scheduleAll'])
+        ->name('app.content-approved.schedule-all');
 });
