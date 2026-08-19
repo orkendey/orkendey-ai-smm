@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import {
     IconCalendarWeek,
+    IconCheck,
     IconChevronRight,
     IconLayoutGrid,
     IconMovie,
@@ -9,10 +10,27 @@ import {
     IconRefresh,
     IconSparkles,
 } from '@tabler/icons-vue';
-import { computed, ref } from 'vue';
+import axios from 'axios';
+import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
+
+interface SocialAccount {
+    id: string;
+    platform: string;
+    display_name: string;
+    username: string;
+    display_label: string;
+    avatar_url: string | null;
+}
+
+interface Props {
+    socialAccounts: SocialAccount[];
+}
+
+const props = defineProps<Props>();
 
 const topics = [
     'Повышение квалификации',
@@ -28,6 +46,22 @@ const selectedTopic = ref(topics[0]);
 const language = ref<'ru' | 'kk'>('ru');
 const intensity = ref<5 | 7>(5);
 const generated = ref(false);
+const submittingWeek = ref(false);
+const queuedCount = ref(0);
+
+const instagramAccounts = computed(() =>
+    props.socialAccounts.filter((account) => ['instagram', 'instagram-facebook'].includes(account.platform)),
+);
+
+const selectedAccountId = ref<string | null>(instagramAccounts.value.length === 1 ? instagramAccounts.value[0].id : null);
+
+watch(instagramAccounts, (accounts) => {
+    if (accounts.length === 1) selectedAccountId.value = accounts[0].id;
+    if (accounts.length === 0) selectedAccountId.value = null;
+    if (selectedAccountId.value && !accounts.some((account) => account.id === selectedAccountId.value)) {
+        selectedAccountId.value = null;
+    }
+});
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const isoDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -48,6 +82,7 @@ const contentPatterns = [
         format: 'instagram_feed',
         icon: IconPhoto,
         angle: 'экспертный пост: объясни проблему, почему она важна для организации и дай 3 практических рекомендации',
+        imageCount: 1,
     },
     {
         offset: 1,
@@ -55,6 +90,7 @@ const contentPatterns = [
         format: 'instagram_story',
         icon: IconSparkles,
         angle: 'серия Stories: короткий полезный факт, вопрос аудитории и мягкий призыв узнать подробнее об обучении',
+        imageCount: 1,
     },
     {
         offset: 2,
@@ -62,6 +98,7 @@ const contentPatterns = [
         format: 'instagram_carousel',
         icon: IconLayoutGrid,
         angle: 'карусель на 5–7 карточек: распространённые ошибки, правильный подход и итоговый чек-лист',
+        imageCount: 6,
     },
     {
         offset: 4,
@@ -69,6 +106,7 @@ const contentPatterns = [
         format: 'instagram_feed',
         icon: IconPhoto,
         angle: 'продающий пост без агрессивных продаж: покажи пользу курса, кому он подходит и какой практический результат получает слушатель',
+        imageCount: 1,
     },
     {
         offset: 5,
@@ -76,6 +114,7 @@ const contentPatterns = [
         format: 'instagram_feed',
         icon: IconMovie,
         angle: 'сценарий Reels на 25–35 секунд: сильный хук, 3 коротких тезиса, финальный CTA. Выдай текст для ведущего и подсказки по кадрам',
+        imageCount: 1,
     },
     {
         offset: 3,
@@ -83,6 +122,7 @@ const contentPatterns = [
         format: 'instagram_story',
         icon: IconSparkles,
         angle: 'серия интерактивных Stories: мини-тест из 3 вопросов по теме с правильными ответами и объяснением',
+        imageCount: 1,
     },
     {
         offset: 6,
@@ -90,6 +130,7 @@ const contentPatterns = [
         format: 'instagram_carousel',
         icon: IconLayoutGrid,
         angle: 'карусель-FAQ: собери 5 частых вопросов руководителей и педагогов по теме и дай короткие понятные ответы',
+        imageCount: 5,
     },
 ];
 
@@ -128,6 +169,35 @@ const createHref = (item: (typeof plan.value)[number]) => {
 
 const generatePlan = () => {
     generated.value = true;
+    queuedCount.value = 0;
+};
+
+const generateWholeWeek = async () => {
+    if (!selectedAccountId.value || submittingWeek.value || !generated.value) return;
+
+    submittingWeek.value = true;
+    queuedCount.value = 0;
+
+    try {
+        const response = await axios.post('/content-plan/generate-week', {
+            social_account_id: selectedAccountId.value,
+            items: plan.value.map((item) => ({
+                date: item.date,
+                format: item.format,
+                prompt: item.prompt,
+                image_count: item.imageCount,
+                apply_brand_visuals: true,
+            })),
+        });
+
+        queuedCount.value = response.data.count ?? plan.value.length;
+        toast.success(`${queuedCount.value} материалов поставлено в AI-генерацию`);
+    } catch (error: any) {
+        const message = error?.response?.data?.message ?? 'Не удалось запустить генерацию всей недели.';
+        toast.error(message);
+    } finally {
+        submittingWeek.value = false;
+    }
 };
 </script>
 
@@ -145,12 +215,12 @@ const generatePlan = () => {
                         </div>
                         <h1 class="text-3xl font-bold tracking-tight">Контент-план на неделю</h1>
                         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-                            Выберите направление и язык. Система подготовит недельную сетку, а каждый материал можно сразу отправить в AI-генератор.
+                            Выберите направление и язык. Можно создавать материалы по одному или поставить всю неделю в AI-генерацию одной кнопкой.
                         </p>
                     </div>
                 </div>
 
-                <section class="grid gap-4 rounded-2xl border-2 border-foreground bg-card p-5 shadow-2xs lg:grid-cols-[1.5fr_.7fr_.7fr_auto] lg:items-end">
+                <section class="grid gap-4 rounded-2xl border-2 border-foreground bg-card p-5 shadow-2xs lg:grid-cols-[1.4fr_.7fr_.7fr_auto] lg:items-end">
                     <label class="space-y-2">
                         <span class="text-sm font-bold">Направление</span>
                         <select v-model="selectedTopic" class="h-10 w-full rounded-md border-2 border-foreground bg-background px-3 text-sm">
@@ -182,10 +252,42 @@ const generatePlan = () => {
                 </section>
 
                 <section v-if="generated" class="space-y-4">
+                    <div class="grid gap-4 rounded-2xl border bg-muted/30 p-5 md:grid-cols-[1fr_auto] md:items-end">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-bold">Instagram-аккаунт для генерации</label>
+                            <select
+                                v-model="selectedAccountId"
+                                class="h-10 w-full max-w-xl rounded-md border-2 border-foreground bg-background px-3 text-sm"
+                                :disabled="instagramAccounts.length === 0"
+                            >
+                                <option :value="null" disabled>
+                                    {{ instagramAccounts.length ? 'Выберите Instagram-аккаунт' : 'Instagram не подключён' }}
+                                </option>
+                                <option v-for="account in instagramAccounts" :key="account.id" :value="account.id">
+                                    {{ account.display_label }}{{ account.username ? ` (@${account.username})` : '' }}
+                                </option>
+                            </select>
+                            <p class="text-xs text-muted-foreground">
+                                Все материалы создаются как черновики. Даты используются для календаря, но автоматическая публикация не запускается.
+                            </p>
+                        </div>
+
+                        <Button
+                            size="lg"
+                            class="gap-2"
+                            :disabled="!selectedAccountId || submittingWeek || instagramAccounts.length === 0"
+                            @click="generateWholeWeek"
+                        >
+                            <IconCheck v-if="queuedCount > 0" class="size-4" />
+                            <IconSparkles v-else class="size-4" />
+                            {{ submittingWeek ? 'Ставлю в очередь…' : queuedCount > 0 ? `В очереди: ${queuedCount}` : 'Создать всю неделю' }}
+                        </Button>
+                    </div>
+
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-xl font-bold">План: {{ selectedTopic }}</h2>
-                            <p class="text-sm text-muted-foreground">Каждый материал сначала создаётся как черновик — публикация автоматически не запускается.</p>
+                            <p class="text-sm text-muted-foreground">Можно запустить всю неделю сразу или открыть конкретный материал для ручной проверки prompt.</p>
                         </div>
                     </div>
 
