@@ -92,6 +92,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         icon: IconFileText,
     },
     {
+        title: 'На согласовании',
+        href: '/content-approval',
+        icon: IconFileCheck,
+    },
+    {
         title: trans('sidebar.posts.calendar'),
         href: calendar.url(),
         icon: IconCalendar,
