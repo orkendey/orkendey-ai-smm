@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\App\ContentApprovalController;
 use App\Http\Controllers\App\ContentPlanGenerationController;
 use App\Http\Middleware\App\EnsureAccountReady;
 use App\Http\Middleware\App\EnsureHasWorkspace;
@@ -24,4 +25,10 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
     Route::post('content-plan/generate-week', [ContentPlanGenerationController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('app.content-plan.generate-week');
+
+    Route::get('content-approval', [ContentApprovalController::class, 'index'])
+        ->name('app.content-approval');
+
+    Route::post('content-approval/{post}/approve', [ContentApprovalController::class, 'approve'])
+        ->name('app.content-approval.approve');
 });
