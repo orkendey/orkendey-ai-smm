@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     IconCheck,
+    IconChecks,
     IconEye,
     IconPencil,
     IconRefresh,
@@ -48,6 +49,7 @@ interface PaginatedPosts {
 const props = defineProps<{ posts: PaginatedPosts }>();
 const previewPost = ref<Post | null>(null);
 const approvingId = ref<string | null>(null);
+const approvingAll = ref(false);
 
 const posts = computed(() => props.posts.data ?? []);
 
@@ -59,6 +61,7 @@ const formatDate = (value: string | null) => {
         month: 'short',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Almaty',
     }).format(new Date(value));
 };
 
@@ -77,13 +80,23 @@ const accountLabel = (post: Post) => {
 const mediaUrl = (post: Post) => post.media?.[0]?.thumbnail_url ?? post.media?.[0]?.url ?? null;
 
 const approve = (post: Post) => {
-    if (approvingId.value) return;
+    if (approvingId.value || approvingAll.value) return;
     approvingId.value = post.id;
 
     router.post(`/content-approval/${post.id}/approve`, {}, {
         preserveScroll: true,
         onFinish: () => {
             approvingId.value = null;
+        },
+    });
+};
+
+const approveAll = () => {
+    if (approvingAll.value || props.posts.total === 0) return;
+    approvingAll.value = true;
+    router.post('/content-approval/approve-all', {}, {
+        onFinish: () => {
+            approvingAll.value = false;
         },
     });
 };
@@ -95,7 +108,7 @@ const approve = (post: Post) => {
     <AppLayout>
         <div class="flex h-full flex-1 flex-col p-4 md:p-6">
             <div class="mx-auto w-full max-w-6xl space-y-6">
-                <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <div class="mb-2 inline-flex items-center gap-2 rounded-full border bg-amber-50 px-3 py-1 text-xs font-bold">
                             <IconSparkles class="size-4" />
@@ -103,12 +116,25 @@ const approve = (post: Post) => {
                         </div>
                         <h1 class="text-3xl font-bold tracking-tight">На согласовании</h1>
                         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-                            Здесь находятся материалы, созданные AI из контент-плана. Одобрение не публикует пост — оно только подтверждает, что материал готов к следующему этапу.
+                            Проверьте AI-материалы. Одобрение не публикует пост — материал перейдёт в отдельный список «Одобрено».
                         </p>
                     </div>
-                    <div class="rounded-xl border bg-card px-4 py-3 text-sm">
-                        <span class="text-muted-foreground">Ожидают проверки:</span>
-                        <strong class="ml-2">{{ props.posts.total }}</strong>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="rounded-xl border bg-card px-4 py-3 text-sm">
+                            <span class="text-muted-foreground">Ожидают:</span>
+                            <strong class="ml-2">{{ props.posts.total }}</strong>
+                        </div>
+                        <Button v-if="props.posts.total" class="gap-2" :disabled="approvingAll" @click="approveAll">
+                            <IconChecks class="size-4" />
+                            {{ approvingAll ? 'Одобряю…' : 'Одобрить всё' }}
+                        </Button>
+                        <Link
+                            href="/content-approved"
+                            class="inline-flex h-10 items-center rounded-md border bg-background px-4 text-sm font-semibold hover:bg-muted"
+                        >
+                            Одобренные
+                        </Link>
                     </div>
                 </div>
 
@@ -174,7 +200,7 @@ const approve = (post: Post) => {
                             <Button
                                 size="sm"
                                 class="ml-auto gap-1.5"
-                                :disabled="approvingId === post.id"
+                                :disabled="approvingId === post.id || approvingAll"
                                 @click="approve(post)"
                             >
                                 <IconCheck class="size-4" />
@@ -187,15 +213,15 @@ const approve = (post: Post) => {
                 <div v-else class="rounded-2xl border border-dashed p-12 text-center">
                     <IconCheck class="mx-auto size-10 text-muted-foreground" />
                     <h2 class="mt-3 text-lg font-bold">Всё проверено</h2>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                        Сейчас нет материалов, ожидающих согласования. Создайте новую неделю в разделе «Контент-план».
-                    </p>
-                    <Link
-                        href="/content-plan"
-                        class="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
-                    >
-                        Открыть контент-план
-                    </Link>
+                    <p class="mt-1 text-sm text-muted-foreground">Сейчас нет материалов, ожидающих согласования.</p>
+                    <div class="mt-4 flex justify-center gap-2">
+                        <Link href="/content-plan" class="inline-flex h-10 items-center rounded-md border px-4 text-sm font-semibold hover:bg-muted">
+                            Контент-план
+                        </Link>
+                        <Link href="/content-approved" class="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground">
+                            Одобренные
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>
