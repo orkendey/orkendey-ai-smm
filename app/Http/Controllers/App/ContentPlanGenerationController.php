@@ -39,6 +39,11 @@ class ContentPlanGenerationController extends Controller
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $reviewLabel = $workspace->labels()->firstOrCreate(
+            ['name' => 'На согласовании'],
+            ['color' => '#F59E0B'],
+        );
+
         $queued = [];
 
         foreach ($request->validated('items') as $item) {
@@ -59,6 +64,7 @@ class ContentPlanGenerationController extends Controller
                 date: (string) $item['date'],
                 template: (string) ($item['template'] ?? ContentStyle::default()->value),
                 applyBrandVisuals: (bool) ($item['apply_brand_visuals'] ?? true),
+                labelIds: [$reviewLabel->id],
             );
 
             $queued[] = [
@@ -69,7 +75,7 @@ class ContentPlanGenerationController extends Controller
         }
 
         return response()->json([
-            'message' => 'Контент на неделю поставлен в генерацию.',
+            'message' => 'Контент на неделю поставлен в генерацию и после готовности появится в разделе «На согласовании».',
             'count' => count($queued),
             'items' => $queued,
         ], Response::HTTP_ACCEPTED);
