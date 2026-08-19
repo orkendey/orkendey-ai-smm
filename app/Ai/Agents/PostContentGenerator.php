@@ -56,13 +56,27 @@ class PostContentGenerator implements Agent, HasStructuredOutput
             $budget['target_chars'] = 280;
         }
 
+        $knowledge = $this->workspace->knowledgeItems()
+            ->where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('title')
+            ->limit(30)
+            ->get(['category', 'title', 'content'])
+            ->map(fn ($item) => "[{$item->category}] {$item->title}: {$item->content}")
+            ->implode("\n");
+
+        $brandDescription = $this->applyBrandVoice ? ($this->workspace->brand_description ?? '') : '';
+        if ($knowledge !== '') {
+            $brandDescription .= "\n\nVERIFIED KNOWLEDGE BASE. Treat these facts as authoritative. Do not invent conflicting facts:\n{$knowledge}";
+        }
+
         $view = $this->template !== null && $this->templateContext !== null
             ? $this->template->promptView($this->templateContext)
             : 'prompts.post_content.generator';
 
         return view($view, [
             'brand_name' => $this->workspace->name ?? '',
-            'brand_description' => $this->applyBrandVoice ? ($this->workspace->brand_description ?? '') : '',
+            'brand_description' => $brandDescription,
             'brand_voice_traits' => $this->applyBrandVoice ? ($this->workspace->brand_voice_traits ?? []) : [],
             'content_language' => $this->workspace->content_language,
             'current_content' => $this->currentContent,
@@ -88,8 +102,7 @@ class PostContentGenerator implements Agent, HasStructuredOutput
                     ->items($schema->object(fn ($s) => [
                         'role' => $s->string()
                             ->enum(['hook', 'development', 'proof', 'cta'])
-                            ->description('The role of this slide in the carousel arc. First slide is `hook` (specific real problem). Last slide is `cta` (one specific next action). Middle slides are `development` (unfold the idea) or `proof` (concrete result, before/after, behind-the-scenes, real learning). For 4+ slides, at least one middle slide must be `proof`.')
-                            ->required(),
+                            ->description('The role of this slide in the carousel arc. First slide is hook, last slide is cta. Middle slides are development or proof.')->required(),
                         'title' => $s->string()->description('Headline of the slide. Short, impactful.')->required(),
                         'body' => $s->string()->description('Supporting body below the headline. 1-3 sentences.')->required(),
                         'image_keywords' => $s->array()->items($schema->string())->description('2-4 search keywords for Unsplash.')->required(),
@@ -103,8 +116,8 @@ class PostContentGenerator implements Agent, HasStructuredOutput
 
         return [
             'content' => $schema->string()->description('The full post caption text that will be published on the platform.')->required(),
-            'image_title' => $schema->string()->description('Short headline (5-12 words) overlaid on the image. The hook — should make a scroller stop. Distinct from content.')->required(),
-            'image_body' => $schema->string()->description('1-2 short sentences (max 25 words) overlaid below the image_title. Expands the hook just enough to compel reading the caption.')->required(),
+            'image_title' => $schema->string()->description('Short headline (5-12 words) overlaid on the image.')->required(),
+            'image_body' => $schema->string()->description('1-2 short sentences (max 25 words) overlaid below the image title.')->required(),
             'image_keywords' => $schema->array()->items($schema->string())->description('2-4 search keywords for Unsplash for the single image.')->required(),
         ];
     }
