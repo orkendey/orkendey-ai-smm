@@ -67,54 +67,21 @@ interface Workspace {
 
 const page = usePage();
 const user = computed(() => page.props.auth.user as User);
-const currentWorkspace = computed<Workspace | null>(
-    () => page.props.auth.currentWorkspace as Workspace | null,
-);
-const workspaces = computed<Workspace[]>(
-    () => page.props.auth.workspaces as Workspace[],
-);
-const subscriptionPastDue = computed<boolean>(() =>
-    Boolean(page.props.auth.subscriptionPastDue),
-);
+const currentWorkspace = computed<Workspace | null>(() => page.props.auth.currentWorkspace as Workspace | null);
+const workspaces = computed<Workspace[]>(() => page.props.auth.workspaces as Workspace[]);
+const subscriptionPastDue = computed<boolean>(() => Boolean(page.props.auth.subscriptionPastDue));
 
-const {
-    canCreatePost,
-    canManageAccounts,
-    canManageAutomations,
-    canCreateWorkspace,
-} = useWorkspaceRole();
+const { canCreatePost, canManageAccounts, canManageAutomations, canCreateWorkspace } = useWorkspaceRole();
 const { isMobile } = useSidebar();
 
 const mainNavItems = computed<NavItem[]>(() => [
-    {
-        title: 'Контент-план',
-        href: '/content-plan',
-        icon: IconFileText,
-    },
-    {
-        title: 'На согласовании',
-        href: '/content-approval',
-        icon: IconFileCheck,
-    },
-    {
-        title: trans('sidebar.posts.calendar'),
-        href: calendar.url(),
-        icon: IconCalendar,
-    },
-    {
-        title: trans('sidebar.analytics'),
-        href: analytics.url(),
-        icon: IconChartBar,
-    },
+    { title: 'Контент-план', href: '/content-plan', icon: IconFileText },
+    { title: 'На согласовании', href: '/content-approval', icon: IconFileCheck },
+    { title: 'Одобрено', href: '/content-approved', icon: IconFileCheck },
+    { title: trans('sidebar.posts.calendar'), href: calendar.url(), icon: IconCalendar },
+    { title: trans('sidebar.analytics'), href: analytics.url(), icon: IconChartBar },
     ...(canManageAutomations.value
-        ? [
-              {
-                  title: trans('sidebar.automations'),
-                  href: automations.url(),
-                  icon: IconBolt,
-                  badge: trans('common.beta'),
-              },
-          ]
+        ? [{ title: trans('sidebar.automations'), href: automations.url(), icon: IconBolt, badge: trans('common.beta') }]
         : []),
 ]);
 
@@ -123,81 +90,32 @@ const postsNavItems = computed<NavItem[]>(() => [
         title: trans('sidebar.posts.all'),
         href: postsIndex.url(),
         icon: IconFileText,
-        excludeActive: [
-            postsIndex.url('scheduled'),
-            postsIndex.url('published'),
-            postsIndex.url('draft'),
-        ],
+        excludeActive: [postsIndex.url('scheduled'), postsIndex.url('published'), postsIndex.url('draft')],
     },
-    {
-        title: trans('sidebar.posts.scheduled'),
-        href: postsIndex.url('scheduled'),
-        icon: IconClock,
-    },
-    {
-        title: trans('sidebar.posts.posted'),
-        href: postsIndex.url('published'),
-        icon: IconFileCheck,
-    },
-    {
-        title: trans('sidebar.posts.drafts'),
-        href: postsIndex.url('draft'),
-        icon: IconPencil,
-    },
+    { title: trans('sidebar.posts.scheduled'), href: postsIndex.url('scheduled'), icon: IconClock },
+    { title: trans('sidebar.posts.posted'), href: postsIndex.url('published'), icon: IconFileCheck },
+    { title: trans('sidebar.posts.drafts'), href: postsIndex.url('draft'), icon: IconPencil },
 ]);
 
 const workspaceNavItems = computed<NavItem[]>(() => [
     ...(canManageAccounts.value
-        ? [
-              {
-                  title: trans('sidebar.workspace.connections'),
-                  href: accounts.url(),
-                  icon: IconAffiliate,
-              },
-          ]
+        ? [{ title: trans('sidebar.workspace.connections'), href: accounts.url(), icon: IconAffiliate }]
         : []),
     ...(canCreatePost.value
         ? [
-              {
-                  title: trans('sidebar.workspace.signatures'),
-                  href: signatures.url(),
-                  icon: IconHash,
-              },
-              {
-                  title: trans('sidebar.workspace.labels'),
-                  href: labels.url(),
-                  icon: IconTag,
-              },
-              {
-                  title: trans('sidebar.workspace.assets'),
-                  href: assets.url(),
-                  icon: IconPhoto,
-              },
+              { title: 'База знаний', href: '/knowledge-base', icon: IconFileText },
+              { title: trans('sidebar.workspace.signatures'), href: signatures.url(), icon: IconHash },
+              { title: trans('sidebar.workspace.labels'), href: labels.url(), icon: IconTag },
+              { title: trans('sidebar.workspace.assets'), href: assets.url(), icon: IconPhoto },
           ]
         : []),
-    {
-        title: trans('sidebar.workspace.mcp'),
-        href: mcp.url(),
-        icon: IconPlugConnected,
-    },
+    { title: trans('sidebar.workspace.mcp'), href: mcp.url(), icon: IconPlugConnected },
 ]);
 
 const bottomNavItems = computed(() => [
-    {
-        title: trans('sidebar.support.referral'),
-        href: 'https://affiliates.trypost.it/',
-        icon: IconGift,
-    },
-    {
-        title: trans('sidebar.support.discord'),
-        href: 'https://trypost.it/discord',
-        icon: IconBrandDiscord,
-    },
-    {
-        title: trans('sidebar.support.docs'),
-        href: 'https://docs.trypost.it',
-        icon: IconLifebuoy,
-    },
+    { title: trans('sidebar.support.referral'), href: 'https://affiliates.trypost.it/', icon: IconGift },
+    { title: trans('sidebar.support.discord'), href: 'https://trypost.it/discord', icon: IconBrandDiscord },
+    { title: trans('sidebar.support.docs'), href: 'https://docs.trypost.it', icon: IconLifebuoy },
 ]);
 </script>
 
@@ -223,14 +141,9 @@ const bottomNavItems = computed(() => [
                                         fallback-class="bg-violet-100 text-violet-700 font-bold"
                                     />
                                     <div class="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                                        <span class="truncate font-semibold">
-                                            {{ currentWorkspace?.name ?? $t('sidebar.select_workspace') }}
-                                        </span>
+                                        <span class="truncate font-semibold">{{ currentWorkspace?.name ?? $t('sidebar.select_workspace') }}</span>
                                     </div>
-                                    <component
-                                        :is="isMobile ? IconSelector : IconChevronRight"
-                                        class="ml-auto size-4"
-                                    />
+                                    <component :is="isMobile ? IconSelector : IconChevronRight" class="ml-auto size-4" />
                                 </SidebarMenuButton>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
@@ -247,7 +160,6 @@ const bottomNavItems = computed(() => [
                                 />
                             </DropdownMenuContent>
                         </DropdownMenu>
-
                         <NotificationBell v-if="currentWorkspace" />
                     </div>
                 </SidebarMenuItem>
@@ -256,56 +168,27 @@ const bottomNavItems = computed(() => [
 
         <SidebarContent class="gap-px">
             <div v-if="currentWorkspace && canCreatePost" class="px-2 py-2">
-                <Link :href="createPost.url()" class="block">
-                    <Button class="w-full">{{ $t('sidebar.create_post') }}</Button>
-                </Link>
+                <Link :href="createPost.url()" class="block"><Button class="w-full">{{ $t('sidebar.create_post') }}</Button></Link>
             </div>
 
             <NavMain v-if="currentWorkspace" :items="mainNavItems" />
-            <NavMain
-                v-if="currentWorkspace"
-                :items="postsNavItems"
-                :label="$t('sidebar.groups.posts')"
-            />
-            <NavMain
-                v-if="currentWorkspace && workspaceNavItems.length"
-                :items="workspaceNavItems"
-                :label="$t('sidebar.groups.workspace')"
-            />
+            <NavMain v-if="currentWorkspace" :items="postsNavItems" :label="$t('sidebar.groups.posts')" />
+            <NavMain v-if="currentWorkspace && workspaceNavItems.length" :items="workspaceNavItems" :label="$t('sidebar.groups.workspace')" />
 
             <div class="mt-auto">
-                <NavSupport
-                    v-if="currentWorkspace"
-                    :items="bottomNavItems"
-                    :label="$t('sidebar.groups.others')"
-                />
+                <NavSupport v-if="currentWorkspace" :items="bottomNavItems" :label="$t('sidebar.groups.others')" />
             </div>
         </SidebarContent>
+
         <SidebarFooter>
             <SidebarOnboarding v-if="currentWorkspace" />
-
-            <div
-                v-if="subscriptionPastDue"
-                dusk="past-due-notice"
-                class="mx-1 mb-1 rounded-md border-2 border-destructive bg-destructive/10 p-3"
-            >
+            <div v-if="subscriptionPastDue" dusk="past-due-notice" class="mx-1 mb-1 rounded-md border-2 border-destructive bg-destructive/10 p-3">
                 <div class="flex items-center gap-2 text-destructive">
                     <IconAlertTriangle class="size-4 shrink-0" />
                     <span class="text-sm font-semibold">{{ $t('billing.past_due_notice.title') }}</span>
                 </div>
-                <p class="mt-1 text-xs text-muted-foreground">
-                    {{ $t('billing.past_due_notice.description') }}
-                </p>
-                <Button
-                    as="a"
-                    :href="portal.url()"
-                    variant="destructive"
-                    size="sm"
-                    class="mt-2 w-full"
-                    dusk="past-due-cta"
-                >
-                    {{ $t('billing.past_due_notice.cta') }}
-                </Button>
+                <p class="mt-1 text-xs text-muted-foreground">{{ $t('billing.past_due_notice.description') }}</p>
+                <Button as="a" :href="portal.url()" variant="destructive" size="sm" class="mt-2 w-full" dusk="past-due-cta">{{ $t('billing.past_due_notice.cta') }}</Button>
             </div>
         </SidebarFooter>
     </Sidebar>
