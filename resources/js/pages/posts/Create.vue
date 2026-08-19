@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     IconBookmarks,
     IconBriefcase,
@@ -48,11 +48,17 @@ const props = withDefaults(defineProps<Props>(), {
     date: null,
 });
 
+const page = usePage();
+const query = computed(() => new URLSearchParams((page.url.split('?')[1] ?? '')));
+const queryPrompt = computed(() => query.value.get('prompt') ?? '');
+const queryFormat = computed(() => query.value.get('format'));
+const openedFromPlan = computed(() => query.value.get('from') === 'content-plan' && queryPrompt.value.length > 0);
+
 type View = 'choice' | 'ai';
 
-const view = ref<View>('choice');
+const view = ref<View>(openedFromPlan.value ? 'ai' : 'choice');
 const submitting = ref(false);
-const selectedPrompt = ref('');
+const selectedPrompt = ref(queryPrompt.value);
 const aiHeader = ref<{ title: string; description: string } | null>(null);
 
 const hasConnectedAccounts = computed(() => props.socialAccounts.length > 0);
@@ -124,13 +130,15 @@ const startFromScratch = () => {
     });
 };
 
-const pageTitle = computed(() => 'AI SMM-агент');
+const pageTitle = computed(() => openedFromPlan.value ? 'Материал из контент-плана' : 'AI SMM-агент');
 
 const stepHeader = computed(() => {
     if (view.value === 'ai' && aiHeader.value) return aiHeader.value;
     return {
-        title: 'AI SMM-агент',
-        description: 'Выберите направление — агент подготовит запрос для генерации Instagram-контента в стиле «Өркендеу».',
+        title: openedFromPlan.value ? 'Материал из контент-плана' : 'AI SMM-агент',
+        description: openedFromPlan.value
+            ? 'Дата, формат и задача уже подготовлены. Проверьте запрос и запустите генерацию.'
+            : 'Выберите направление — агент подготовит запрос для генерации Instagram-контента в стиле «Өркендеу».',
     };
 });
 </script>
@@ -216,6 +224,7 @@ const stepHeader = computed(() => {
                     :templates="templates"
                     :date="props.date"
                     :initial-prompt="selectedPrompt"
+                    :initial-format="queryFormat"
                     @update:step-header="aiHeader = $event"
                     @cancel="view = 'choice'; aiHeader = null; selectedPrompt = ''"
                 />
