@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\App\ContentApprovalController;
 use App\Http\Controllers\App\ContentPlanGenerationController;
+use App\Http\Controllers\App\KnowledgeBaseController;
 use App\Http\Middleware\App\EnsureAccountReady;
 use App\Http\Middleware\App\EnsureHasWorkspace;
 use App\Http\Resources\App\SocialAccountResource;
@@ -37,4 +38,15 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
         ->name('app.content-approved');
     Route::post('content-approved/schedule-all', [ContentApprovalController::class, 'scheduleAll'])
         ->name('app.content-approved.schedule-all');
+
+    Route::get('knowledge-base', [KnowledgeBaseController::class, 'index'])
+        ->name('app.knowledge-base');
+    Route::post('knowledge-base', [KnowledgeBaseController::class, 'store'])
+        ->name('app.knowledge-base.store');
+    Route::post('knowledge-base/seed-orkendey', [KnowledgeBaseController::class, 'seedOrkendey'])
+        ->name('app.knowledge-base.seed-orkendey');
+    Route::put('knowledge-base/{item}', [KnowledgeBaseController::class, 'update'])
+        ->name('app.knowledge-base.update');
+    Route::delete('knowledge-base/{item}', [KnowledgeBaseController::class, 'destroy'])
+        ->name('app.knowledge-base.destroy');
 });
