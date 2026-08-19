@@ -107,7 +107,8 @@ class PostContentGenerator implements Agent, HasStructuredOutput
                     ->items($schema->object(fn ($s) => [
                         'role' => $s->string()
                             ->enum(['hook', 'development', 'proof', 'cta'])
-                            ->description('The role of this slide in the carousel arc. First slide is hook, last slide is cta. Middle slides are development or proof.')->required(),
+                            ->description('The role of this slide in the carousel arc. First slide is `hook` (specific real problem). Last slide is `cta` (one specific next action). Middle slides are `development` (unfold the idea) or `proof` (concrete result, before/after, behind-the-scenes, real learning). For 4+ slides, at least one middle slide must be `proof`.')
+                            ->required(),
                         'title' => $s->string()->description('Headline of the slide. Short, impactful.')->required(),
                         'body' => $s->string()->description('Supporting body below the headline. 1-3 sentences.')->required(),
                         'image_keywords' => $s->array()->items($schema->string())->description('2-4 search keywords for Unsplash.')->required(),
@@ -121,8 +122,8 @@ class PostContentGenerator implements Agent, HasStructuredOutput
 
         return [
             'content' => $schema->string()->description('The full post caption text that will be published on the platform.')->required(),
-            'image_title' => $schema->string()->description('Short headline (5-12 words) overlaid on the image.')->required(),
-            'image_body' => $schema->string()->description('1-2 short sentences (max 25 words) overlaid below the image title.')->required(),
+            'image_title' => $schema->string()->description('Short headline (5-12 words) overlaid on the image. The hook — should make a scroller stop. Distinct from content.')->required(),
+            'image_body' => $schema->string()->description('1-2 short sentences (max 25 words) overlaid below the image_title. Expands the hook just enough to compel reading the caption.')->required(),
             'image_keywords' => $schema->array()->items($schema->string())->description('2-4 search keywords for Unsplash for the single image.')->required(),
         ];
     }
