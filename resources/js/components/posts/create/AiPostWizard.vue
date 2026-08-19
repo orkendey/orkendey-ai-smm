@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import {
-    IconArrowLeft,
-    IconCheck,
-} from '@tabler/icons-vue';
-import { trans } from 'laravel-vue-i18n';
+import { IconArrowLeft, IconCheck, IconLayoutGrid, IconPhoto, IconSparkles } from '@tabler/icons-vue';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 
@@ -15,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { getPlatformLogo } from '@/composables/usePlatformLogo';
 import { loading as loadingRoute } from '@/routes/app/posts/ai';
-import { ContentType, type ContentTypeValue } from '@/types/content-type';
+import { ContentType } from '@/types/content-type';
 
 interface SocialAccount {
     id: string;
@@ -39,161 +35,118 @@ interface AiTemplate {
 interface Props {
     socialAccounts: SocialAccount[];
     templates: AiTemplate[];
-    /** ISO date (YYYY-MM-DD) carried over from the calendar's per-day "+" button. */
     date?: string | null;
+    initialPrompt?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     date: null,
+    initialPrompt: '',
 });
 
 const emit = defineEmits<{
-    /** Parent mirrors this in the PageHeader for context. */
     'update:stepHeader': [{ title: string; description: string }];
-    /** Back button asks parent to leave the AI flow. */
     cancel: [];
 }>();
 
 const CAROUSEL_FORMAT = 'instagram_carousel' as const;
-type AiFormat = ContentTypeValue | typeof CAROUSEL_FORMAT;
+type InstagramFormat = typeof ContentType.InstagramFeed | typeof ContentType.InstagramStory | typeof CAROUSEL_FORMAT;
 
-// Selections
-const selectedFormat = ref<AiFormat | null>(null);
-const selectedStyle = ref<string>('image_card');
-const selectedAccountId = ref<string | null>(null);
-const includeImages = ref(true);
-const imageCount = ref(2);
-const promptText = ref('');
-// true = images use the workspace brand palette; false = the AI picks colors freely.
-const useBrandColors = ref(true);
-const PROMPT_MIN = 3;
-const PROMPT_MAX = 2000;
-
-const submitting = ref(false);
-
-const AI_FORMATS: Array<{ value: AiFormat; platforms: string[] }> = [
-    { value: ContentType.InstagramFeed, platforms: ['instagram', 'instagram-facebook'] },
-    { value: CAROUSEL_FORMAT, platforms: ['instagram', 'instagram-facebook'] },
-    { value: ContentType.InstagramStory, platforms: ['instagram', 'instagram-facebook'] },
-    { value: ContentType.LinkedInPost, platforms: ['linkedin'] },
-    { value: ContentType.LinkedInPagePost, platforms: ['linkedin-page'] },
-    { value: ContentType.XPost, platforms: ['x'] },
-    { value: ContentType.BlueskyPost, platforms: ['bluesky'] },
-    { value: ContentType.ThreadsPost, platforms: ['threads'] },
-    { value: ContentType.MastodonPost, platforms: ['mastodon'] },
-    { value: ContentType.FacebookPost, platforms: ['facebook'] },
-    { value: ContentType.PinterestPin, platforms: ['pinterest'] },
+const formats: Array<{
+    value: InstagramFormat;
+    title: string;
+    description: string;
+    icon: typeof IconPhoto;
+}> = [
+    {
+        value: ContentType.InstagramFeed,
+        title: 'Пост',
+        description: 'Один пост в ленту Instagram',
+        icon: IconPhoto,
+    },
+    {
+        value: CAROUSEL_FORMAT,
+        title: 'Карусель',
+        description: '2–10 карточек для раскрытия темы',
+        icon: IconLayoutGrid,
+    },
+    {
+        value: ContentType.InstagramStory,
+        title: 'Stories',
+        description: 'Вертикальный контент для Stories',
+        icon: IconSparkles,
+    },
 ];
 
-/** Templates with no format restriction — pure visual styles (image_card, tweet_card). */
-const styleTemplates = computed(() => props.templates.filter((t) => t.supported_formats.length === 0));
+const selectedFormat = ref<InstagramFormat | null>(null);
+const selectedStyle = ref('image_card');
+const selectedAccountId = ref<string | null>(null);
+const imageCount = ref(1);
+const promptText = ref(props.initialPrompt);
+const useBrandColors = ref(true);
+const submitting = ref(false);
 
-/** The template whose supported_formats includes the currently selected format (e.g. carousel). */
+watch(
+    () => props.initialPrompt,
+    (value) => {
+        if (value && !promptText.value.trim()) promptText.value = value;
+    },
+);
+
+const instagramAccounts = computed(() =>
+    props.socialAccounts.filter((account) =>
+        ['instagram', 'instagram-facebook'].includes(account.platform),
+    ),
+);
+
+watch(
+    instagramAccounts,
+    (accounts) => {
+        if (accounts.length === 1) selectedAccountId.value = accounts[0].id;
+        if (accounts.length === 0) selectedAccountId.value = null;
+    },
+    { immediate: true },
+);
+
+const styleTemplates = computed(() =>
+    props.templates.filter((template) => template.supported_formats.length === 0),
+);
+
 const formatBoundTemplate = computed(() =>
     selectedFormat.value
-        ? props.templates.find((t) => t.supported_formats.includes(selectedFormat.value as string)) ?? null
+        ? props.templates.find((template) => template.supported_formats.includes(selectedFormat.value as string)) ?? null
         : null,
 );
 
-/** The template key that will be sent to the backend. */
-const resolvedTemplate = computed(() =>
-    formatBoundTemplate.value ? formatBoundTemplate.value.key : selectedStyle.value,
-);
+const resolvedTemplate = computed(() => formatBoundTemplate.value?.key ?? selectedStyle.value);
 
 const resolvedTemplateRecord = computed(() =>
-    props.templates.find((t) => t.key === resolvedTemplate.value) ?? null,
+    props.templates.find((template) => template.key === resolvedTemplate.value) ?? null,
 );
-
-const connectedPlatforms = computed(() => {
-    const platforms = new Set<string>();
-    for (const account of props.socialAccounts) {
-        platforms.add(account.platform);
-    }
-    return Array.from(platforms);
-});
-
-const availableFormats = computed(() => AI_FORMATS);
-
-const isFormatConnected = (format: typeof AI_FORMATS[number]): boolean =>
-    format.platforms.some((p) => connectedPlatforms.value.includes(p));
-
-const accountsForFormat = computed(() => {
-    if (!selectedFormat.value) return [];
-    const format = AI_FORMATS.find((f) => f.value === selectedFormat.value);
-    if (!format) return [];
-    return props.socialAccounts.filter((a) => format.platforms.includes(a.platform));
-});
-
-const isCarousel = computed(() => selectedFormat.value === CAROUSEL_FORMAT);
-const requiresImage = computed(() =>
-    selectedFormat.value === ContentType.FacebookPost ||
-    selectedFormat.value === ContentType.PinterestPin ||
-    selectedFormat.value === ContentType.InstagramStory,
-);
-const supportsOptionalImages = computed(() =>
-    selectedFormat.value === ContentType.InstagramFeed ||
-    selectedFormat.value === ContentType.LinkedInPost ||
-    selectedFormat.value === ContentType.LinkedInPagePost ||
-    selectedFormat.value === ContentType.XPost ||
-    selectedFormat.value === ContentType.BlueskyPost ||
-    selectedFormat.value === ContentType.ThreadsPost ||
-    selectedFormat.value === ContentType.MastodonPost,
-);
-const maxOptionalImages = computed(() =>
-    selectedFormat.value === ContentType.InstagramFeed ? 1 : 4,
-);
-const showsAccountPicker = computed(() => accountsForFormat.value.length > 1);
-
-const templateNeedsAccount = computed(() => resolvedTemplateRecord.value?.needs_account ?? false);
 
 const submittedImageCount = computed(() => {
-    if (isCarousel.value) return imageCount.value;
-    if (requiresImage.value) return 1;
-    if (supportsOptionalImages.value && includeImages.value) return imageCount.value;
-    return 0;
+    if (selectedFormat.value === CAROUSEL_FORMAT) return imageCount.value;
+    if (selectedFormat.value === ContentType.InstagramStory) return 1;
+    return 1;
 });
 
 const promptLength = computed(() => [...promptText.value.trim()].length);
-
 const canSubmit = computed(() =>
     selectedFormat.value !== null &&
     selectedAccountId.value !== null &&
-    promptLength.value >= PROMPT_MIN &&
-    promptLength.value <= PROMPT_MAX,
+    promptLength.value >= 3 &&
+    promptLength.value <= 2000,
 );
 
-// Auto-pick the only account when format has exactly one match.
-watch(accountsForFormat, (accounts) => {
-    if (accounts.length === 1) {
-        selectedAccountId.value = accounts[0].id;
-    } else if (accounts.length === 0) {
-        selectedAccountId.value = null;
-    } else if (accounts.length > 1 && !accounts.some((a) => a.id === selectedAccountId.value)) {
-        selectedAccountId.value = null;
-    }
-});
-
-const selectFormat = (format: AiFormat) => {
+const selectFormat = (format: InstagramFormat) => {
     selectedFormat.value = format;
-    if (format === CAROUSEL_FORMAT) {
-        imageCount.value = 5;
-    } else if (format === ContentType.InstagramFeed) {
-        imageCount.value = 1;
-        includeImages.value = true;
-    } else {
-        imageCount.value = 2;
-        includeImages.value = true;
-    }
+    imageCount.value = format === CAROUSEL_FORMAT ? 5 : 1;
 };
 
 emit('update:stepHeader', {
-    title: trans('posts.create.ai_title'),
-    description: trans('posts.create.ai_configure_description'),
+    title: 'AI SMM-агент',
+    description: 'Выберите формат, проверьте подготовленный запрос и запустите генерацию.',
 });
-
-const goBack = () => {
-    emit('cancel');
-};
 
 const startGeneration = () => {
     if (!canSubmit.value || submitting.value) return;
@@ -216,171 +169,149 @@ const startGeneration = () => {
             },
         ).url,
         {
-            onError: () => toast.error(trans('posts.create.steps.preview_error')),
-            onFinish: () => { submitting.value = false; },
+            onError: () => toast.error('Не удалось запустить генерацию. Проверьте подключение AI-провайдера.'),
+            onFinish: () => {
+                submitting.value = false;
+            },
         },
     );
 };
-
 </script>
 
 <template>
     <div class="space-y-6">
-        <!-- Back button -->
         <button
             type="button"
-            class="group inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-foreground/70 transition-colors hover:text-foreground"
-            @click="goBack"
+            class="group inline-flex items-center gap-1.5 text-sm font-semibold text-foreground/70 transition-colors hover:text-foreground"
+            @click="emit('cancel')"
         >
             <span class="inline-flex size-7 items-center justify-center rounded-md border-2 border-foreground bg-card shadow-2xs transition-transform group-hover:-translate-x-0.5">
-                <IconArrowLeft class="size-3.5 text-foreground" stroke-width="2.5" />
+                <IconArrowLeft class="size-3.5" stroke-width="2.5" />
             </span>
-            {{ $t('posts.create.steps.back') }}
+            Назад к направлениям
         </button>
 
-        <!-- Format -->
-        <div class="space-y-2">
-            <Label class="text-sm font-bold">{{ $t('posts.create.steps.format_title') }}</Label>
-            <div class="grid gap-2 sm:grid-cols-2">
+        <div class="rounded-2xl border-2 border-foreground bg-violet-50 p-5 shadow-2xs">
+            <div class="flex items-start gap-3">
+                <div class="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border-2 border-foreground bg-violet-200">
+                    <IconSparkles class="size-5" />
+                </div>
+                <div>
+                    <p class="font-bold">Orkendey AI SMM</p>
+                    <p class="mt-1 text-sm text-foreground/70">
+                        Запрос уже подготовлен на основе выбранного направления. Его можно изменить перед генерацией.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <section class="space-y-3">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">Шаг 2</p>
+                <Label class="text-base font-bold">Формат Instagram</Label>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-3">
                 <button
-                    v-for="format in availableFormats"
+                    v-for="format in formats"
                     :key="format.value"
                     type="button"
-                    class="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-foreground bg-card p-3.5 text-left text-sm shadow-2xs transition-all hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-card"
-                    :class="{ '!bg-violet-100 shadow-md': selectedFormat === format.value }"
-                    :disabled="!isFormatConnected(format)"
-                    :title="!isFormatConnected(format) ? $t('posts.create.steps.connect_first') : ''"
+                    class="flex items-start gap-3 rounded-xl border-2 border-foreground bg-card p-4 text-left shadow-2xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    :class="{ '!bg-violet-100': selectedFormat === format.value }"
                     @click="selectFormat(format.value)"
                 >
-                    <span class="inline-flex size-7 items-center justify-center overflow-hidden rounded-full border-2 border-foreground bg-card shadow-2xs">
-                        <img
-                            :src="getPlatformLogo(format.platforms[0])"
-                            :alt="format.platforms[0]"
-                            class="size-full object-cover"
-                        />
-                    </span>
-                    <span class="flex-1 font-semibold text-foreground">{{ $t(`posts.create.steps.format.${format.value}`) }}</span>
-                    <IconCheck v-if="selectedFormat === format.value" class="size-4 text-foreground" stroke-width="3" />
-                </button>
-            </div>
-        </div>
-
-        <!-- Visual style — shown only for single-image formats (not carousel) -->
-        <div v-if="selectedFormat && !formatBoundTemplate" class="space-y-2">
-            <Label class="text-sm font-bold">{{ $t('posts.create.steps.template_picker_title') }}</Label>
-            <ContentStylePicker v-model="selectedStyle" :styles="styleTemplates" />
-        </div>
-
-        <!-- Account (when template needs_account OR there's a choice to make) -->
-        <div v-if="selectedFormat && (templateNeedsAccount || showsAccountPicker)" class="space-y-2">
-            <Label class="text-sm font-bold">{{ $t('posts.create.steps.account_title') }}</Label>
-            <p v-if="templateNeedsAccount && accountsForFormat.length === 0" class="text-sm text-foreground/60">
-                {{ $t('posts.create.steps.no_account_for_template') }}
-            </p>
-            <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <button
-                    v-for="account in accountsForFormat"
-                    :key="account.id"
-                    type="button"
-                    class="relative flex cursor-pointer items-center gap-2 rounded-xl border-2 border-foreground bg-card p-2.5 text-left text-sm shadow-2xs transition-all hover:bg-foreground/5"
-                    :class="{ '!bg-violet-100 shadow-md': selectedAccountId === account.id }"
-                    @click="selectedAccountId = account.id"
-                >
-                    <span class="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-foreground bg-card shadow-2xs">
-                        <img
-                            v-if="account.avatar_url"
-                            :src="account.avatar_url"
-                            :alt="account.display_label"
-                            class="size-full object-cover"
-                        />
-                        <img v-else :src="getPlatformLogo(account.platform)" :alt="account.platform" class="size-4" />
-                    </span>
+                    <component :is="format.icon" class="mt-0.5 size-5 shrink-0" />
                     <div class="min-w-0 flex-1">
-                        <p class="truncate text-xs font-bold leading-tight text-foreground">{{ account.display_label }}</p>
-                        <p v-if="account.username" class="truncate text-xs font-medium text-foreground/60">@{{ account.username }}</p>
+                        <p class="text-sm font-bold">{{ format.title }}</p>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ format.description }}</p>
                     </div>
-                    <IconCheck v-if="selectedAccountId === account.id" class="absolute right-2 top-2 size-3.5 text-foreground" stroke-width="3" />
+                    <IconCheck v-if="selectedFormat === format.value" class="size-4 shrink-0" stroke-width="3" />
                 </button>
             </div>
-        </div>
+        </section>
 
-        <!-- Media — inline, only when format actually has options -->
-        <div v-if="selectedFormat && isCarousel" class="space-y-2">
-            <Label class="text-sm font-bold">{{ $t('posts.create.steps.media_carousel') }}</Label>
-            <div class="flex flex-wrap gap-2">
-                <Button
-                    v-for="n in [2, 3, 4, 5, 6, 7, 8, 9, 10]"
-                    :key="n"
-                    type="button"
-                    size="icon"
-                    :variant="imageCount === n ? 'default' : 'outline'"
-                    @click="imageCount = n"
-                >
-                    {{ n }}
-                </Button>
+        <section v-if="selectedFormat" class="space-y-4">
+            <div v-if="instagramAccounts.length > 1" class="space-y-2">
+                <Label class="font-bold">Instagram-аккаунт</Label>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <button
+                        v-for="account in instagramAccounts"
+                        :key="account.id"
+                        type="button"
+                        class="flex items-center gap-3 rounded-xl border-2 border-foreground bg-card p-3 text-left"
+                        :class="{ '!bg-violet-100': selectedAccountId === account.id }"
+                        @click="selectedAccountId = account.id"
+                    >
+                        <span class="inline-flex size-9 items-center justify-center overflow-hidden rounded-full border-2 border-foreground bg-card">
+                            <img
+                                v-if="account.avatar_url"
+                                :src="account.avatar_url"
+                                :alt="account.display_label"
+                                class="size-full object-cover"
+                            />
+                            <img v-else :src="getPlatformLogo(account.platform)" :alt="account.platform" class="size-5" />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-bold">{{ account.display_label }}</p>
+                            <p v-if="account.username" class="truncate text-xs text-muted-foreground">@{{ account.username }}</p>
+                        </div>
+                        <IconCheck v-if="selectedAccountId === account.id" class="size-4" stroke-width="3" />
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <div v-if="selectedFormat && supportsOptionalImages" class="space-y-2">
-            <Label class="text-sm font-bold">{{ $t('posts.create.steps.media_optional_label') }}</Label>
-            <div class="flex flex-wrap gap-2">
-                <Button
-                    type="button"
-                    :variant="!includeImages ? 'default' : 'outline'"
-                    @click="includeImages = false"
-                >
-                    {{ $t('posts.create.steps.media_none') }}
-                </Button>
-                <Button
-                    v-for="n in maxOptionalImages"
-                    :key="n"
-                    type="button"
-                    size="icon"
-                    :variant="includeImages && imageCount === n ? 'default' : 'outline'"
-                    @click="includeImages = true; imageCount = n"
-                >
-                    {{ n }}
-                </Button>
+            <div v-if="selectedFormat === CAROUSEL_FORMAT" class="space-y-2">
+                <Label class="font-bold">Количество карточек</Label>
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        v-for="count in [2, 3, 4, 5, 6, 7, 8, 9, 10]"
+                        :key="count"
+                        type="button"
+                        size="icon"
+                        :variant="imageCount === count ? 'default' : 'outline'"
+                        @click="imageCount = count"
+                    >
+                        {{ count }}
+                    </Button>
+                </div>
             </div>
-        </div>
 
-        <!-- Brand colors: apply the workspace palette or let the AI decide. Only
-             for image templates that honor it (tweet cards are always branded). -->
-        <div
-            v-if="selectedFormat && submittedImageCount > 0 && resolvedTemplateRecord?.applies_brand_visuals"
-            class="flex items-center justify-between gap-4 rounded-xl border-2 border-foreground bg-card p-4 shadow-2xs"
-        >
-            <div class="space-y-0.5">
-                <Label for="apply-brand-visuals" class="text-sm font-bold">{{ $t('posts.create.steps.brand_colors_label') }}</Label>
-                <p class="text-sm text-foreground/70">{{ $t('posts.create.steps.brand_colors_description') }}</p>
+            <div v-if="!formatBoundTemplate && styleTemplates.length" class="space-y-2">
+                <Label class="font-bold">Стиль визуала</Label>
+                <ContentStylePicker v-model="selectedStyle" :styles="styleTemplates" />
             </div>
-            <Switch id="apply-brand-visuals" v-model="useBrandColors" />
-        </div>
 
-        <!-- Prompt -->
-        <div v-if="selectedFormat" class="space-y-2">
-            <Label for="ai-prompt" class="text-sm font-bold">{{ $t('posts.create.steps.prompt_label') }}</Label>
-            <Textarea
-                id="ai-prompt"
-                v-model="promptText"
-                :placeholder="$t('posts.create.steps.prompt_placeholder')"
-                class="min-h-[140px] resize-none"
-            />
-            <p
-                data-testid="ai-prompt-counter"
-                aria-live="polite"
-                class="text-right text-xs tabular-nums"
-                :class="promptLength > PROMPT_MAX ? 'font-semibold text-destructive' : 'text-muted-foreground'"
+            <div
+                v-if="resolvedTemplateRecord?.applies_brand_visuals"
+                class="flex items-center justify-between gap-4 rounded-xl border bg-card p-4"
             >
-                {{ promptLength }}/{{ PROMPT_MAX }}
-            </p>
-        </div>
+                <div>
+                    <p class="text-sm font-bold">Использовать фирменные цвета</p>
+                    <p class="text-xs text-muted-foreground">AI будет ориентироваться на бренд рабочего пространства.</p>
+                </div>
+                <Switch v-model="useBrandColors" />
+            </div>
 
-        <!-- Generate -->
-        <div v-if="selectedFormat" class="flex justify-end pt-1">
-            <Button :disabled="!canSubmit || submitting" @click="startGeneration">
-                {{ $t('posts.ai.generate.start') }}
-            </Button>
-        </div>
+            <div class="space-y-2">
+                <Label for="ai-prompt" class="font-bold">Задача для AI</Label>
+                <Textarea
+                    id="ai-prompt"
+                    v-model="promptText"
+                    placeholder="Например: расскажи о новом курсе, добавь сильный заголовок и призыв оставить заявку"
+                    class="min-h-[180px] resize-y"
+                />
+                <div class="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Можно добавить цену, сроки, аудиторию и конкретный оффер.</span>
+                    <span :class="{ 'font-bold text-destructive': promptLength > 2000 }">{{ promptLength }}/2000</span>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <Button size="lg" :disabled="!canSubmit || submitting" @click="startGeneration">
+                    <IconSparkles class="mr-2 size-4" />
+                    {{ submitting ? 'Запускаю…' : 'Создать с AI' }}
+                </Button>
+            </div>
+        </section>
     </div>
 </template>
