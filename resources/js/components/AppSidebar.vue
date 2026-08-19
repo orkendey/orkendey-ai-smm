@@ -87,6 +87,11 @@ const { isMobile } = useSidebar();
 
 const mainNavItems = computed<NavItem[]>(() => [
     {
+        title: 'Контент-план',
+        href: '/content-plan',
+        icon: IconFileText,
+    },
+    {
         title: trans('sidebar.posts.calendar'),
         href: calendar.url(),
         icon: IconCalendar,
@@ -212,22 +217,13 @@ const bottomNavItems = computed(() => [
                                         class="h-8 w-8 shrink-0 rounded-md border-2 border-foreground"
                                         fallback-class="bg-violet-100 text-violet-700 font-bold"
                                     />
-                                    <div
-                                        class="grid min-w-0 flex-1 text-left text-sm leading-tight"
-                                    >
+                                    <div class="grid min-w-0 flex-1 text-left text-sm leading-tight">
                                         <span class="truncate font-semibold">
-                                            {{
-                                                currentWorkspace?.name ??
-                                                $t('sidebar.select_workspace')
-                                            }}
+                                            {{ currentWorkspace?.name ?? $t('sidebar.select_workspace') }}
                                         </span>
                                     </div>
                                     <component
-                                        :is="
-                                            isMobile
-                                                ? IconSelector
-                                                : IconChevronRight
-                                        "
+                                        :is="isMobile ? IconSelector : IconChevronRight"
                                         class="ml-auto size-4"
                                     />
                                 </SidebarMenuButton>
@@ -256,9 +252,7 @@ const bottomNavItems = computed(() => [
         <SidebarContent class="gap-px">
             <div v-if="currentWorkspace && canCreatePost" class="px-2 py-2">
                 <Link :href="createPost.url()" class="block">
-                    <Button class="w-full">
-                        {{ $t('sidebar.create_post') }}
-                    </Button>
+                    <Button class="w-full">{{ $t('sidebar.create_post') }}</Button>
                 </Link>
             </div>
 
@@ -292,9 +286,7 @@ const bottomNavItems = computed(() => [
             >
                 <div class="flex items-center gap-2 text-destructive">
                     <IconAlertTriangle class="size-4 shrink-0" />
-                    <span class="text-sm font-semibold">{{
-                        $t('billing.past_due_notice.title')
-                    }}</span>
+                    <span class="text-sm font-semibold">{{ $t('billing.past_due_notice.title') }}</span>
                 </div>
                 <p class="mt-1 text-xs text-muted-foreground">
                     {{ $t('billing.past_due_notice.description') }}
