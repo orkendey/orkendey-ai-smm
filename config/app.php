@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'TryPost.it'),
+    'name' => env('APP_NAME', 'Orkendey AI SMM'),
 
     /*
     |--------------------------------------------------------------------------
@@ -48,13 +48,13 @@ return [
     | Application URL
     |--------------------------------------------------------------------------
     |
-    | This URL is used by the console to properly generate URLs when using
-    | the Artisan command line tool. You should set this to the root of
-    | the application so that it's available within Artisan commands.
+    | This URL is used by the console to properly generate URLs when using the
+    | Artisan command line tool. You should set this to the root of the
+    | application so that it's available within Artisan commands.
     |
     */
 
-    'url' => env('APP_URL', 'https://app.trypost.it'),
+    'url' => env('APP_URL', 'http://localhost'),
 
     /*
     |--------------------------------------------------------------------------
@@ -67,7 +67,7 @@ return [
     |
     */
 
-    'webhook_url' => env('WEBHOOK_URL', env('APP_URL', 'https://app.trypost.it')),
+    'webhook_url' => env('WEBHOOK_URL', env('APP_URL', 'http://localhost')),
 
     /*
     |--------------------------------------------------------------------------
@@ -80,7 +80,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Almaty'),
 
     /*
     |--------------------------------------------------------------------------
@@ -93,11 +93,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'ru'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'ru_RU'),
 
     /*
     |--------------------------------------------------------------------------
@@ -117,8 +117,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | This key is utilized by Laravel's encryption services and should be set
-    | to a random, 32 character string to ensure that all encrypted values
-    | are secure. You should do this prior to deploying the application.
+    | to a random, 32 character string to ensure that all encrypted values are
+    | secure. You should do this prior to deploying the application.
     |
     */
 
