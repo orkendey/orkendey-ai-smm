@@ -23,6 +23,8 @@ class InstagramController extends SocialController
 
     protected array $scopes = [
         'instagram_business_basic',
+        'instagram_business_manage_messages',
+        'instagram_business_manage_comments',
         'instagram_business_content_publish',
         'instagram_business_manage_insights',
     ];
@@ -40,10 +42,13 @@ class InstagramController extends SocialController
             'social_reconnect_id' => null,
         ]);
 
-        $url = Socialite::driver($this->driver)
-            ->scopes($this->scopes)
-            ->redirect()
-            ->getTargetUrl();
+        $url = 'https://www.instagram.com/oauth/authorize?'.http_build_query([
+            'force_reauth' => 'true',
+            'client_id' => config('services.instagram.client_id'),
+            'redirect_uri' => config('services.instagram.redirect'),
+            'response_type' => 'code',
+            'scope' => implode(',', $this->scopes),
+        ], '', '&', PHP_QUERY_RFC3986);
 
         return Inertia::location($url);
     }
@@ -63,12 +68,12 @@ class InstagramController extends SocialController
         }
 
         try {
-            $socialUser = Socialite::driver($this->driver)->user();
+            $socialUser = Socialite::driver($this->driver)->stateless()->user();
 
-            // Instagram API with Instagram Login returns the user directly
+            // Instagram API with Instagram Login returns the user directly.
             $avatarPath = $socialUser->getAvatar() ? uploadFromUrl($socialUser->getAvatar()) : null;
 
-            // Calculate token expiration (long-lived tokens last 60 days)
+            // Long-lived Instagram tokens last up to 60 days.
             $expiresIn = $socialUser->expiresIn ?? $this->platform->defaultTokenTtlSeconds();
             $tokenExpiresAt = now()->addSeconds($expiresIn);
 
