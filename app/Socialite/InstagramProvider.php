@@ -18,10 +18,8 @@ class InstagramProvider extends AbstractProvider implements ProviderInterface
 
     protected function getAuthUrl($state): string
     {
-        // enable_fb_login=0 forces the pure Instagram Login flow (without
-        // delegating to Facebook OAuth). Tokens issued from the FB-delegated
-        // path can't be exchanged via graph.instagram.com/access_token.
-        return 'https://www.instagram.com/oauth/authorize?enable_fb_login=0&'.http_build_query([
+        return 'https://www.instagram.com/oauth/authorize?'.http_build_query([
+            'force_reauth' => 'true',
             'client_id' => $this->clientId,
             'redirect_uri' => $this->redirectUrl,
             'response_type' => 'code',
@@ -59,7 +57,10 @@ class InstagramProvider extends AbstractProvider implements ProviderInterface
 
     public function getAccessTokenResponse($code): array
     {
-        // Meta's docs document this endpoint with curl -F flags (multipart/form-data).
+        $code = trim((string) $code);
+        $code = preg_replace('/(?:#_|%23_)$/i', '', $code) ?? $code;
+
+        // Meta documents this endpoint using multipart/form-data.
         $multipart = [];
         foreach ($this->getTokenFields($code) as $name => $contents) {
             $multipart[] = ['name' => $name, 'contents' => (string) $contents];
@@ -76,8 +77,6 @@ class InstagramProvider extends AbstractProvider implements ProviderInterface
 
     protected function exchangeForLongLivedToken(array $data): array
     {
-        // Although Meta's docs don't list `client_id` as a required parameter,
-        // the API in practice rejects the request without it.
         $response = $this->getHttpClient()->get(config('trypost.platforms.instagram.auth_api').'/access_token', [
             RequestOptions::QUERY => [
                 'grant_type' => 'ig_exchange_token',
